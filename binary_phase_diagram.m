@@ -1,100 +1,114 @@
 %% clear environment
-% 3D interactive model: https://skfb.ly/o6DoI
 clear
 clf('reset')
 clc
 
 
-%% vapor pressure relations
-% ethanol
-p_e = @(T) 10 .^ (4.92531 - 1432.526 ./ (T - 61.819));
-
-% water
-p_w = @(T) 10 .^ (3.55959 - 643.748 ./ (T - 198.043));
-
-
-%% figure configurations
+%% figure configuration
 % create figure
 fig = figure(1);
-view(3)
-grid on
-hold on
-axis([0 1 300 400 0 5])
-xticks(0:0.1:1)
-xlabel('Composition x-y [-]')
-ylabel('Temperature, T [K]')
-zlabel('Pressure, P [bar]')
+view(3);
+grid on;
+hold on;
 
-% prepare composition, temperature, pressure grids
-[x, T_mesh] = meshgrid(0:0.1:1, 300:10:400);
-[x, P_mesh] = meshgrid(0:0.1:1, 0:0.5:5);
+% axis
+axis([0 1 300 400 0 5]);
+xticks(0:0.1:1);
+
+% labels
+xlabel('Composition, x-y [-]');
+ylabel('Temperature, T [K]');
+zlabel('Pressure, P [bar]');
 
 
-%% calculate parameters
-% define ranges
+%% parameters / givens 
+% define range
 n = 11;
 T_range = linspace(300, 400, n);
 
-% calculate Antoine for water (@x=0)
-ant_w = p_w(T_range);
+% mesh grids for x, T, P
+[x, T_mesh] = meshgrid(linspace(0, 1, n), T_range);
+[x, P_mesh] = meshgrid(linspace(0, 1, n), linspace(0, 5, n));
 
-% calculate antoine for ethanol (@x=1)
-ant_e = p_e(T_range);
+% ethanol vapor pressure
+p_e = @(T) 10 .^ (4.92531 - 1432.526 ./ (T - 61.819));
 
-% plot antoine relation for pure components
-plot3(zeros(1, 11), T_range, ant_w);
-plot3(ones(1, 11), T_range, ant_e);
+% water vapor pressure
+p_w = @(T) 10 .^ (3.55959 - 643.748 ./ (T - 198.043));
 
-% iso-therm
-iso_therm = mesh(x, 390*ones(n), P_mesh, 'FaceAlpha', 1);
 
-% generate phase diagrams at different isotherms
-for i = 1:n
+%% boiling curves for pure components
+% pure water (@x=0)
+boiling_w = p_w(T_range);
+plot3(zeros(1, n), T_range, boiling_w);
 
-  % temperature
-  T_i = T_range(i);
-  
-  % liquidus line
-  P(i, :) = p_w(T_i) + x(i, :) * (p_e(T_i) - p_w(T_i));
+% pure ethanol
+boiling_e = p_e(T_range);
+plot3(ones(1, n), T_range, boiling_e);
 
-  % vaporous curve
-  y(i, :) = x(i, :) .* p_e(T_i) ./ P(i, :);
 
-  % plot liquidus line
-  plot3(x(i, :), T_i * ones(1, 11), P(i, :), 'b');
+%% isothermal diagram
+for i=1:n
 
-  % plot vaporous curve
-  plot3(y(i, :), T_i * ones(1, 11), P(i, :), 'r');
+    % temperature
+    T_iso = T_mesh(i, 1);
 
-  
-  
+    % iso-therm
+    if i == n-1
+        iso_therm = mesh(x(1, :), T_iso*ones(n), P_mesh, 'FaceAlpha', 0.75, 'LineStyle', 'none');
+    end
+    
+    % liquidus line
+    P = p_w(T_iso) + x(1, :) .* (p_e(T_iso) - p_w(T_iso));
+    plot3(x(1, :), T_iso*ones(1, n), P, 'b');
+
+    % vaporous curve
+    y = x(1, :) .* p_e(T_iso) ./ P;
+    plot3(y, T_iso*ones(1, n), P, 'r');
+
 end
 
-% iso-bar
-iso_bar = mesh(x, T_mesh, ones(n), 'FaceAlpha', 1);
+%% isobaric diagram
+% pressure
+P_iso = 1;
 
-% generate phase diagram at atmospheric isobar
-for i = 1:n
+%iso-bar
+iso_bar = mesh(x(1, :), T_mesh, P_iso*ones(n));
+iso_bar.FaceAlpha = 0.75;
+iso_bar.LineStyle = 'none';
 
-  x_bp(i) = (i-1)/(n-1);
-  T_bp(i) = fsolve(@(T) (1 - p_e(T).*x_bp(i) - p_w(T).*(1-x_bp(i))), 350);
-  y_bp(i) = p_e(T_bp(i)).*x_bp(i);
-  
+% calculate the bubble points for all composition range
+for i=1:n
+   
+    x_bp(i) = x(1, i);
+    T_bp(i) = fsolve( @(T) ( P_iso - p_e(T).*x_bp(i) - p_w(T).*(1-x_bp(i)) ), 360);
+    y_bp(i) = x_bp(i) .* p_e(T_bp(i)) ./ P_iso;
+    
 end
 
-plot3(x_bp, T_bp, ones(1, 11), 'b--');
-plot3(y_bp, T_bp, ones(1, 11), 'r--');
+% liquidus curve
+plot3(x_bp, T_bp, P_iso*ones(1, n), 'b--');
+
+% vaporous curve
+plot3(y_bp, T_bp, P_iso*ones(1, n), 'r--');
 
 
-%% plot surfaces
+%% surfaces / 3D diagram
 % liquidus surface
+P = p_w(T_mesh) + x .* (p_e(T_mesh) - p_w(T_mesh));
 liq_surf = surf(x, T_mesh, P);
 liq_surf.FaceAlpha = 0.5;
 liq_surf.LineStyle = 'none';
-liq_surf.FaceColor = 'blue';
+liq_surf.FaceColor = 'b';
 
-% vaporus surface
+% vaporous surface
+y = x .* p_e(T_mesh) ./ P;
 vap_surf = surf(y, T_mesh, P);
 vap_surf.FaceAlpha = 0.5;
 vap_surf.LineStyle = 'none';
-vap_surf.FaceColor = 'red';
+vap_surf.FaceColor = 'r';
+
+
+
+
+
