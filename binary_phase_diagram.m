@@ -24,11 +24,13 @@ zlabel('Pressure, P [bar]');
 %% parameters / givens 
 % define range
 n = 11;
+x_range = linspace(0, 1, n);
 T_range = linspace(300, 400, n);
+P_range = linspace(0, 5, n);
 
 % mesh grids for x, T, P
-[x, T_mesh] = meshgrid(linspace(0, 1, n), T_range);
-[x, P_mesh] = meshgrid(linspace(0, 1, n), linspace(0, 5, n));
+[x, T_mesh] = meshgrid(x_range, T_range);
+[x, P_mesh] = meshgrid(x_range, P_range);
 
 % ethanol vapor pressure
 p_e = @(T) 10 .^ (4.92531 - 1432.526 ./ (T - 61.819));
@@ -51,19 +53,19 @@ plot3(ones(1, n), T_range, boiling_e);
 for i=1:n
 
     % temperature
-    T_iso = T_mesh(i, 1);
+    T_iso = T_range(i);
 
     % iso-therm
     if i == n-1
-        iso_therm = mesh(x(1, :), T_iso*ones(n), P_mesh, 'FaceAlpha', 0.75, 'LineStyle', 'none');
+        iso_therm = mesh(x_range, T_iso*ones(n), P_mesh, 'FaceAlpha', 0.75, 'LineStyle', 'none');
     end
     
     % liquidus line
-    P = p_w(T_iso) + x(1, :) .* (p_e(T_iso) - p_w(T_iso));
-    plot3(x(1, :), T_iso*ones(1, n), P, 'b');
+    P = p_w(T_iso) + x_range .* (p_e(T_iso) - p_w(T_iso));
+    plot3(x_range, T_iso*ones(1, n), P, 'b');
 
     % vaporous curve
-    y = x(1, :) .* p_e(T_iso) ./ P;
+    y = x_range .* p_e(T_iso) ./ P;
     plot3(y, T_iso*ones(1, n), P, 'r');
 
 end
@@ -73,14 +75,14 @@ end
 P_iso = 1;
 
 %iso-bar
-iso_bar = mesh(x(1, :), T_mesh, P_iso*ones(n));
+iso_bar = mesh(x_range, T_mesh, P_iso*ones(n));
 iso_bar.FaceAlpha = 0.75;
 iso_bar.LineStyle = 'none';
 
 % calculate the bubble points for all composition range
 for i=1:n
    
-    x_bp(i) = x(1, i);
+    x_bp(i) = x_range(i);
     T_bp(i) = fsolve( @(T) ( P_iso - p_e(T).*x_bp(i) - p_w(T).*(1-x_bp(i)) ), 360);
     y_bp(i) = x_bp(i) .* p_e(T_bp(i)) ./ P_iso;
     
